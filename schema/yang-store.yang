@@ -1,0 +1,172 @@
+module yang-store {
+  prefix ys;
+  namespace "urn:corenova:yang:store";
+  yang-version 1.1;
+
+  description
+    "This module provides management of YANG modules and integration with data providers";
+
+  import ietf-yang-types   { prefix yang; }
+  import ietf-inet-types   { prefix inet; }
+  import ietf-yang-library { prefix yanglib; }
+
+  feature synchronizer {
+    description "A system facility that synchronizes data between providers";
+  }
+  
+  identity data-provider {
+    description "A data provider identifier";
+  }
+  identity store {
+    base data-provider;
+    description "Specifies the current store module instance as the provider";
+  }
+
+  typedef datalink {
+    type union {
+      type inet:uri {
+        description
+          "This can be any protocol based link, if no protocol is defined, it
+           will be implicitly treated as local file path";
+      }
+      type identityref { base data-provider; }
+      type leafref { path '/yanglib:modules-state/module/name'; }
+    }
+  }
+  
+  grouping datasync-connection {
+    leaf source {
+      type datalink;
+      mandatory true;
+    }
+
+    leaf destination {
+      type datalink;
+      mandatory true;
+    }
+    
+    leaf keepalive {
+      description
+        "when enabled, connection will be kept active and synchronization
+         ongoing until explicitly unlinked. Otherwise, when the
+         connection terminates, a notification will be triggered to
+         indicate error with the synchronization link.";
+      type boolean;
+      default true;
+    }
+    leaf sync {
+      description
+        "Define synchronization mode for the connection between source and
+         destination. When set as 'two-way', changes in data state
+         will be synchronized to each data provider endpoint. In the
+         event of a state conflict between the two providers, the
+         'source' provider will take an authoritative role.";
+      
+      type enumeration {
+        enum one-way {
+          value 1;
+          description "one-way synchronization from source to destination";
+        }
+        enum two-way {
+          description "two-way synchronization between source and destination";
+        }
+      }
+      default one-way;
+    }
+  }
+
+  grouping datasync-state {
+    leaf active {
+      config false;
+      type boolean;
+    }
+    container stats {
+      config false;
+      leaf duration     { type uint32; default 0; units seconds; }
+      leaf transactions { type unit32; default 0; }
+      leaf conflicts    { type uint16; default 0; }
+    }
+  }
+
+  grouping datasync-list {
+    list link {
+      key "link-id";
+      leaf link-id {
+        config false;
+        type yang:uuid;
+        description "automatic system generated UUID for the link.";
+      }
+      uses datasync-connection;
+      uses datasync-status;
+    }
+  }
+
+  container store-sync {
+    uses datasync-list {
+      if-feature synchronizer;
+    }
+  }
+  
+  container dataset {
+    config false;
+    description "Aggregate view of all module data in the current store.";
+  }
+
+  /** RPCs **/
+  
+  rpc sync {
+    description
+      "Perform a one-time synchronization between two data providers.";
+    input { uses datasync-connection; }
+  }
+
+  rpc link {
+    if-feature synchronizer;
+    description
+      "Create a data synchronization link between two data providers.";
+    input {
+      uses datasync-connection {
+        refine sync {
+          default "two-way";
+        }
+      }
+    }
+  }
+
+  /** Notifications **/
+
+  notification yang-store-change {
+    description
+      "Generated when the set of modules and submodules supported
+       by the server has changed.";
+  
+  // rpc import {
+  //   description
+  //     "You can import an additional YANG module into the local repository and
+  //      make it available inside the current server.";
+
+  //   input {
+  //     choice payload {
+  //       case package { 
+        
+  //     }
+  //     uses module-package;
+  //   }
+  //   output {
+  //     leaf name { type yang:yang-identifier; }
+  //     leaf-list properties { type yang:yang-identifier; }
+  //   }
+  // }
+
+  // rpc export {
+  //   input {
+  //     leaf name {
+  //       type yang:yang-identifier;
+  //       mandatory true;
+  //     }
+  //   }
+  //   output { uses module-package; }
+  // }
+
+  notification connection;
+}
