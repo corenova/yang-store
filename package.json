@@ -29,6 +29,7 @@
     "yang-store": "./lib/yang-store.js"
   },
   "dependencies": {
+    "node-uuid": "^1.4.7",
     "yang-js": "^0.16.0"
   },
   "devDependencies": {

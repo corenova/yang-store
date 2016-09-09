@@ -1,19 +1,28 @@
 module yang-store {
-  prefix ys;
   namespace "urn:corenova:yang:store";
+  prefix ys;
   yang-version 1.1;
-
-  description
-    "This module provides management of YANG modules and integration with data providers";
-
+  
   import ietf-yang-types   { prefix yang; }
   import ietf-inet-types   { prefix inet; }
   import ietf-yang-library { prefix yanglib; }
 
+  description
+    "This module provides management of YANG modules and integration with data providers";
+  revision 2016-09-09 {
+    description
+      "Initial revision.";
+  }
+  
+  /*
+   * Features
+   */
   feature synchronizer {
     description "A system facility that synchronizes data between providers";
   }
-  
+  /*
+   * Identities
+   */
   identity data-provider {
     description "A data provider identifier";
   }
@@ -21,7 +30,9 @@ module yang-store {
     base data-provider;
     description "Specifies the current store module instance as the provider";
   }
-
+  /*
+   * Typedefs
+   */
   typedef datalink {
     type union {
       type inet:uri {
@@ -33,7 +44,9 @@ module yang-store {
       type leafref { path '/yanglib:modules-state/module/name'; }
     }
   }
-  
+  /*
+   * Groupings
+   */
   grouping datasync-connection {
     leaf source {
       type datalink;
@@ -74,7 +87,6 @@ module yang-store {
       default one-way;
     }
   }
-
   grouping datasync-state {
     leaf active {
       config false;
@@ -87,7 +99,6 @@ module yang-store {
       leaf conflicts    { type uint16; default 0; }
     }
   }
-
   grouping datasync-list {
     list link {
       key "link-id";
@@ -97,29 +108,32 @@ module yang-store {
         description "automatic system generated UUID for the link.";
       }
       uses datasync-connection;
-      uses datasync-status;
+      uses datasync-state;
     }
   }
-
-  container store-sync {
+  /*
+   * Configuration state data nodes
+   */
+  container data {
     uses datasync-list {
       if-feature synchronizer;
     }
+    anydata store {
+      description "Mount point for all module instances";
+    }
+    container root {
+      config false;
+      description "Aggregate view of all module data in the current store.";
+    }
   }
-  
-  container dataset {
-    config false;
-    description "Aggregate view of all module data in the current store.";
-  }
-
-  /** RPCs **/
-  
+  /*
+   * RPCs
+   */
   rpc sync {
     description
       "Perform a one-time synchronization between two data providers.";
     input { uses datasync-connection; }
   }
-
   rpc link {
     if-feature synchronizer;
     description
@@ -132,9 +146,9 @@ module yang-store {
       }
     }
   }
-
-  /** Notifications **/
-
+  /*
+   * Notifications
+   */
   notification yang-store-change {
     description
       "Generated when the set of modules and submodules supported

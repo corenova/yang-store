@@ -4,23 +4,31 @@ url  = require 'url'
 
 module.exports = require('../schema/yang-store.yang').bind {
 
-  '{datasync-list}/link/link-id': -> @content ?= uuid.v4(); return @content
-  
-  dataset: ->
-    data = {}
-    for name, module of Yang.Model.Store
-      data[k] = v for k, v of module.__.valueOf()
-    return data
+  # dependency grouping bindings
+  '{yanglib:module-list}/module/schema': ->
 
+  # local grouping bindings
+  '{datasync-list}/link/link-id': -> @content ?= uuid.v4(); return @content
+
+  # local data tree bindings
+  '/data/store': -> @content ?= Yang.Model.Store; return @content
+    
+  '/data/root': ->
+    @find('../store/*').reduce ((a,b) ->
+      a[k] = v for k, v of b.valueOf()
+      return a
+    ), {}
+
+  # local rpc bindings
   import: (input, resolve, reject) ->
-    dataroot = @get '../data'
+    dataroot = @get '../data/root'
     model = switch
       when typeof input is 'string'    then Yang.parse(input).eval dataroot
       when input instanceof Yang       then input.eval dataroot
       when input instanceof Yang.Model then input
       #else Yang.compose(input).eval input
     console.info "importing '#{model.name}' to the store"
-    model.join @get('../store')
+    model.join @get('../data/store')
     @emit 'import', model
     resolve
       name: model.name
